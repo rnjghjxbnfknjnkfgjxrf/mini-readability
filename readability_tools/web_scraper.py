@@ -19,9 +19,7 @@ class WebScraper:
                             (default: ('span', 'li', 'blockquote'))
         """
         self._main_tag = main_tag
-        if secondary_tags is None:
-            secondary_tags = ('span', 'li', 'blockquote')
-        self._secondary_tags = secondary_tags
+        self._secondary_tags = ('span', 'li', 'blockquote') if secondary_tags is None else secondary_tags
 
     def _retrieve_html(self, url: str) -> bool and int:
         """
