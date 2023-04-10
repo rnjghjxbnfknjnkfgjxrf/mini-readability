@@ -1,17 +1,39 @@
 from bs4 import BeautifulSoup, Tag
 import requests
 
-class WebScraper():
+class WebScraper:
+    """
+    Класс парсера, разбирающего новостные сайты, вычленяя из них текст статьи.
+    """
+    __slots__ = ('_html', '_url', '_title', '_tags_with_text', '_main_tag', '_secondary_tags')
 
-    __slots__ = ['_html', '_url', '_title', '_tags_with_text', '_main_tag', '_secondary_tags']
+    def __init__(self, main_tag: str = 'div', secondary_tags: tuple[str] = None) -> None:
+        """
+        Инициализация экземпляра класса.
 
-    def __init__(self, main_tag: str = 'div', secondary_tags: list[str] = None) -> None:
+        Args:
+            main_tag: название опорного тега, внутри которого происходит
+                      поиск текста (default: 'div')
+            secondary_tags: кортеж названих второстепенных тегов, в которых
+                            также может находится полезнная информация
+                            (default: ('span', 'li', 'blockquote'))
+        """
         self._main_tag = main_tag
         if secondary_tags is None:
             secondary_tags = ('span', 'li', 'blockquote')
         self._secondary_tags = secondary_tags
 
     def _retrieve_html(self, url: str) -> bool and int:
+        """
+        Отправление запроса по заданному адресу и формирование
+        объекта страницы для последующего парсинга.
+
+        Args:
+            url: ссылка на статью.
+        
+        Returns:
+            Флаг успешности проведенных операций и код состояния http.
+        """
         response = requests.get(url)
         if response.status_code != 200:
             return False, response.status_code
@@ -24,6 +46,13 @@ class WebScraper():
         return True, response.status_code
 
     def _get_fragment_with_the_article_only(self) -> None:
+        """
+        Сужение круга поиска нужных элементов:
+        если в структуре сайта есть тэг <article> с находящимся
+        внутри текстом (в тегах <p>), то выбирается этот фрагмент,
+        в ином случае берется <div>, в котором только один заголовок
+        <h1>.
+        """
         article_tag = self._html.find('article')
         if article_tag is not None and article_tag.find('p'):
             self._html = article_tag
@@ -37,6 +66,10 @@ class WebScraper():
                     break
 
     def _remove_useless_tags(self) -> None:
+        """
+        Удаление мусорных элементов, в которых с наибольшей
+        вероятностью не содержится полезной информации.
+        """
         tags_to_remove = ('script',
                           'picture',
                           'button',
@@ -57,6 +90,10 @@ class WebScraper():
             target.decompose()   
 
     def _replace_headers(self) -> None:
+        """
+        Замена тэгов заголовков <h2> и <h3>  на тэги <p>
+        для их корректного позиционирования в конечном тексте. 
+        """
         for header in self._html.find_all(('h2', 'h3')):
             if header('a'):
                 continue
@@ -66,6 +103,10 @@ class WebScraper():
             header.unwrap()
 
     def _find_main_tags_with_text(self) -> None:
+        """
+        Поиск опорных элементов, внутри которых содержится текст
+        внутри тэгов <p>.
+        """
         self._replace_headers()
         tags = []
         for tag in [self._html, *self._html.find_all(self._main_tag)]:
@@ -75,6 +116,11 @@ class WebScraper():
         self._tags_with_text = tags
 
     def _replace_secondary_tags_with_main_tags(self) -> None:
+        """
+        Перебор второстепенных элементов.
+        Если внутри них встречаются тэги <p>, то 
+        эти второстепенные элементы заменяются на опорные.
+        """
         for secondary_tag in self._html.find_all(self._secondary_tags):
             if secondary_tag('p', recursive=False):
                 new_main_tag = BeautifulSoup().new_tag(self._main_tag)
@@ -83,13 +129,32 @@ class WebScraper():
                 secondary_tag.unwrap()
 
     def _replace_br_with_new_line(self) -> None:
+        """
+        Замена тэгов <br> на символ переноса строки.
+        """
         for br_tags in self._html('br'):
             br_tags.replace_with('\n')
 
     def _set_title(self) -> None:
+        """
+        Поиск заголовка статьи.
+        """
         self._title = self._html.find('h1').get_text().strip()
 
     def _extract_href_from_tag(self, tag: Tag) -> str:
+        """
+        Получение корректной ссылки из тэга <a>:
+        берётся значение из атрибута href, если оно
+        не начинается с http, то начало ссылки берётся
+        из исходного url.
+
+        Args:
+            tag: тэг, из которого вычленяется ссылка.
+
+        Returns:
+            Строка, в которой полученный адрес оборчивается в
+            квадратные скобки
+        """
         result = ''
         href = tag['href']
         if not href.startswith('http'):
@@ -98,6 +163,12 @@ class WebScraper():
         return f' [{result}]'
 
     def _generate_text(self) -> list[str]:
+        """
+        Получение итогового текста статьи.
+
+        Returns:
+            Список строк с параграфами текста.
+        """
         full_text = [self._title]
 
         for tags in self._tags_with_text:
@@ -113,7 +184,20 @@ class WebScraper():
                 full_text.append(tag.text.strip())
         return list(filter(lambda x: x, full_text))
 
-    def parse(self, url) -> dict[str: str]:
+    def parse(self, url: str) -> list[str]:
+        """
+        Парсинг новостного сайта из указанного адреса и получение
+        текста статьи.
+
+        Args:
+            url: ссылка на статью.
+        
+        Return:
+            Список строк с параграфами текста.
+        
+        Raises:
+            RequestException: Если не получен ответ от сервера.
+        """
         response = self._retrieve_html(url)
         if not response[0]:
             raise RequestException(response[1])

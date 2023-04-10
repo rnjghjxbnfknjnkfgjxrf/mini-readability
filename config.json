@@ -2,5 +2,7 @@
     "main_tag" : "div",
     "secondary_tags" : ["span", "li", "blockquote"],
     "characters_per_line" : 80,
-    "paragraphs_indent": "\n\n"
+    "paragraphs_indent": "\n\n",
+    "default_file_name": "article",
+    "file_extension": "txt"
 }
