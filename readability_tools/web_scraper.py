@@ -46,7 +46,7 @@ class WebScraper:
     def _get_fragment_with_the_article_only(self) -> None:
         """
         Сужение круга поиска нужных элементов:
-        если в структуре сайта есть тэг <article> с находящимся
+        если в структуре сайта есть тег <article> с находящимся
         внутри текстом (в тегах <p>), то выбирается этот фрагмент,
         в ином случае берется <div>, в котором только один заголовок
         <h1>.
@@ -85,11 +85,11 @@ class WebScraper:
                           'figcaption')
 
         for target in self._html.find_all(tags_to_remove):
-            target.decompose()   
+            target.decompose()
 
     def _replace_headers(self) -> None:
         """
-        Замена тэгов заголовков <h2> и <h3>  на тэги <p>
+        Замена тегов заголовков <h2> и <h3>  на тег <p>
         для их корректного позиционирования в конечном тексте. 
         """
         for header in self._html.find_all(('h2', 'h3')):
@@ -103,7 +103,7 @@ class WebScraper:
     def _find_main_tags_with_text(self) -> None:
         """
         Поиск опорных элементов, внутри которых содержится текст
-        внутри тэгов <p>.
+        внутри тегов <p>.
         """
         self._replace_headers()
         tags = []
@@ -116,7 +116,7 @@ class WebScraper:
     def _replace_secondary_tags_with_main_tags(self) -> None:
         """
         Перебор второстепенных элементов.
-        Если внутри них встречаются тэги <p>, то 
+        Если внутри них встречаются теги <p>, то 
         эти второстепенные элементы заменяются на опорные.
         """
         for secondary_tag in self._html.find_all(self._secondary_tags):
@@ -128,7 +128,7 @@ class WebScraper:
 
     def _replace_br_with_new_line(self) -> None:
         """
-        Замена тэгов <br> на символ переноса строки.
+        Замена тегов <br> на символ переноса строки.
         """
         for br_tags in self._html('br'):
             br_tags.replace_with('\n')
@@ -141,13 +141,13 @@ class WebScraper:
 
     def _extract_href_from_tag(self, tag: Tag) -> str:
         """
-        Получение корректной ссылки из тэга <a>:
+        Получение корректной ссылки из тега <a>:
         берётся значение из атрибута href, если оно
         не начинается с http, то начало ссылки берётся
         из исходного url.
 
         Args:
-            tag: тэг, из которого вычленяется ссылка.
+            tag: тег, из которого вычленяется ссылка.
 
         Returns:
             Строка, в которой полученный адрес оборчивается в
