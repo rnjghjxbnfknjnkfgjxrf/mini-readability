@@ -1178,7 +1178,7 @@ Planning), — где раньше использовались продукты
 ```
 </details>
 
-### 12. parse.py https://76.ru/text/gorod/2023/04/09/72206018/
+### 12. https://76.ru/text/gorod/2023/04/09/72206018/
  ```
 python parse.py https://76.ru/text/gorod/2023/04/09/72206018/
 Config has been successfully loaded.
@@ -1216,7 +1216,7 @@ Article saved to: ./text/gorod/2023/04/09/72206018/article.txt
 ```
 </details>
 
-### 13. parse.py https://tproger.ru/articles/kopirajter-protiv-chatgpt-chej-tekst-luchwe/
+### 13. https://tproger.ru/articles/kopirajter-protiv-chatgpt-chej-tekst-luchwe/
  ```
 python parse.py https://tproger.ru/articles/kopirajter-protiv-chatgpt-chej-tekst-luchwe/
 Config has been successfully loaded.
