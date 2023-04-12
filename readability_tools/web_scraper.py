@@ -1,25 +1,81 @@
 from bs4 import BeautifulSoup, Tag
 import requests
 
-class WebScraper:
-    """
-    Класс парсера, разбирающего новостные сайты, вычленяя из них текст статьи.
-    """
-    __slots__ = ('_html', '_url', '_title', '_tags_with_text', '_main_tag', '_secondary_tags')
+GET_CLASS_IF_EXISTS = lambda attr: {'class': attr.class_} if attr.class_ != 'any' else {}
 
-    def __init__(self, main_tag: str = 'div', secondary_tags: tuple[str] = None) -> None:
+class ConfigurableTag:
+    """
+    Класс, позволяющий удобно конфигурировать тег.
+    """
+    __slots__ = ('name', '_class')
+
+    def __init__(self, name: str, class_: str) -> None:
         """
         Инициализация экземпляра класса.
 
         Args:
-            main_tag: название опорного тега, внутри которого происходит
-                      поиск текста (default: 'div')
-            secondary_tags: кортеж названих второстепенных тегов, в которых
+            name: название тега.
+            class_: класс тега.
+        """
+        self.name = name
+        self.class_ = class_
+
+    @property
+    def class_(self):
+        return self._class
+
+    @class_.setter
+    def class_(self, class_: str):
+        self._class = class_
+
+    def __repr__(self) -> str:
+        return f'<{self.name} class={self.class_}>'
+
+    @classmethod
+    def from_dict(cls, tag_as_dict: dict[str: str]):
+        """
+        Метод, преобращуюзий словарь в объект класса
+        ConfigurableTag.
+        """
+        return ConfigurableTag(tag_as_dict['name'],
+                               tag_as_dict['class_'])
+
+
+class WebScraper:
+    """
+    Класс парсера, разбирающего новостные сайты, вычленяя из них текст статьи.
+    """
+    __slots__ = ('_html',
+                 '_url',
+                 '_title',
+                 '_tags_with_text',
+                 '_main_tag',
+                 '_secondary_tags',
+                 '_text_tag')
+
+    def __init__(self,
+                 main_tag: ConfigurableTag = ConfigurableTag('div', 'any'),
+                 secondary_tags: tuple[ConfigurableTag] = None,
+                 text_tag: ConfigurableTag = ConfigurableTag('p', 'any')) -> None:
+        """
+        Инициализация экземпляра класса.
+
+        Args:
+            main_tag: тег, внутри которого происходит
+                      поиск текстовых тегов (default: ConfigurableTag('div', 'any') == <div>)
+            secondary_tags: кортеж  второстепенных тегов, в которых
                             также может находится полезнная информация
-                            (default: ('span', 'li', 'blockquote'))
+                            (default: (ConfigurableTag('span', 'any') == <span>,
+                                       ConfigurableTag('li', 'any') == <li>,
+                                       ConfigurableTag('blockquote', 'any) == <blockquote>)
+            text_tag: тег, внутри которого хранится текст
+                           (default: ConfigurableTag('p', 'any') == <p>).
         """
         self._main_tag = main_tag
-        self._secondary_tags = ('span', 'li', 'blockquote') if secondary_tags is None else secondary_tags
+        if secondary_tags is None:
+            secondary_tags = tuple(ConfigurableTag(x, 'any') for x in ('span', 'li', 'blockquote'))
+        self._secondary_tags = secondary_tags
+        self._text_tag = text_tag
 
     def _retrieve_html(self, url: str) -> bool and int:
         """
@@ -47,15 +103,16 @@ class WebScraper:
         """
         Сужение круга поиска нужных элементов:
         если в структуре сайта есть тэг <article> с находящимся
-        внутри текстом (в тегах <p>), то выбирается этот фрагмент,
+        внутри текстом (в текстовых тегах), то выбирается этот фрагмент,
         в ином случае берется <div>, в котором только один заголовок
         <h1>.
         """
         article_tag = self._html.find('article')
-        if article_tag is not None and article_tag.find('p'):
+        if article_tag is not None and article_tag.find(self._text_tag.name,
+                                                        GET_CLASS_IF_EXISTS(self._text_tag)):
             self._html = article_tag
         else:
-            for div in self._html('div'):
+            for div in self._html.find_all('div'):
                 headers = div.find_all('h1')
                 if headers is None:
                     headers = []
@@ -85,46 +142,54 @@ class WebScraper:
                           'figcaption')
 
         for target in self._html.find_all(tags_to_remove):
-            target.decompose()   
+            target.decompose()
 
     def _replace_headers(self) -> None:
         """
-        Замена тэгов заголовков <h2> и <h3>  на тэги <p>
+        Замена тэгов заголовков <h2> и <h3>  на текстовые теги
         для их корректного позиционирования в конечном тексте. 
         """
         for header in self._html.find_all(('h2', 'h3')):
             if header('a'):
                 continue
-            new_p_tag = BeautifulSoup().new_tag('p')
-            new_p_tag.extend(header)
-            header.insert_after(new_p_tag)
+            new_text_tag = BeautifulSoup().new_tag(self._text_tag.name)
+            new_text_tag.extend(header)
+            header.insert_after(new_text_tag)
             header.unwrap()
 
     def _find_main_tags_with_text(self) -> None:
         """
-        Поиск опорных элементов, внутри которых содержится текст
-        внутри тэгов <p>.
+        Поиск опорных элементов, внутри которых содержатся текстовые теги.
         """
         self._replace_headers()
         tags = []
-        for tag in [self._html, *self._html.find_all(self._main_tag)]:
-            p_tags = tag('p', recursive=False)
-            tags.append(p_tags)
+        for tag in [self._html,
+                   *self._html.find_all(
+                        self._main_tag.name, GET_CLASS_IF_EXISTS(self._main_tag))]:
+            text_tags = tag.find_all(self._text_tag.name,
+                                     GET_CLASS_IF_EXISTS(self._text_tag),
+                                     recursive=False, )
+            tags.append(text_tags)
 
         self._tags_with_text = tags
 
     def _replace_secondary_tags_with_main_tags(self) -> None:
         """
         Перебор второстепенных элементов.
-        Если внутри них встречаются тэги <p>, то 
+        Если внутри них встречаются текстовые теги, то 
         эти второстепенные элементы заменяются на опорные.
         """
-        for secondary_tag in self._html.find_all(self._secondary_tags):
-            if secondary_tag('p', recursive=False):
-                new_main_tag = BeautifulSoup().new_tag(self._main_tag)
-                new_main_tag.extend(secondary_tag('p'))
-                secondary_tag.insert_after(new_main_tag)
-                secondary_tag.unwrap()
+        for secondary_tag in self._secondary_tags:
+            for tag in self._html.find_all(secondary_tag.name, GET_CLASS_IF_EXISTS(secondary_tag)):
+                text_tags = tag.find_all(self._text_tag.name,
+                                GET_CLASS_IF_EXISTS(self._text_tag),
+                                recursive=False)
+                if text_tags:
+                    new_main_tag = BeautifulSoup().new_tag(self._main_tag.name)
+                    new_main_tag.extend(text_tags)
+                    tag.insert_after(new_main_tag)
+                    tag.unwrap()
+
 
     def _replace_br_with_new_line(self) -> None:
         """
@@ -141,13 +206,13 @@ class WebScraper:
 
     def _extract_href_from_tag(self, tag: Tag) -> str:
         """
-        Получение корректной ссылки из тэга <a>:
+        Получение корректной ссылки из тега <a>:
         берётся значение из атрибута href, если оно
         не начинается с http, то начало ссылки берётся
         из исходного url.
 
         Args:
-            tag: тэг, из которого вычленяется ссылка.
+            tag: тег, из которого вычленяется ссылка.
 
         Returns:
             Строка, в которой полученный адрес оборчивается в
@@ -171,7 +236,7 @@ class WebScraper:
 
         for tags in self._tags_with_text:
             for tag in tags:
-                a_tags = tag('a', href=True)
+                a_tags = tag.find_all('a', href=True)
                 for a_tag in a_tags:
                     if a_tag.text.startswith('http'):
                         continue

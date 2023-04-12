@@ -1,6 +1,26 @@
 {
-    "main_tag" : "div",
-    "secondary_tags" : ["span", "li", "blockquote"],
+    "main_tag" : {
+        "name": "div",
+        "class_": "any"
+    },
+    "secondary_tags" : [
+        {
+            "name": "span",
+            "class_": "any"
+        },
+        {
+            "name": "li",
+            "class_": "any"
+        },
+        {
+            "name": "blockquote",
+            "class_": "any"
+        }
+    ],
+    "text_tag": {
+        "name": "p",
+        "class_": "any"
+    },
     "characters_per_line" : 80,
     "paragraphs_indent": "\n\n",
     "default_file_name": "article",

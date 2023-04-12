@@ -24,7 +24,7 @@ class FileSaverTool:
             default_file_name: имя, которое будет присвоено файлу, если
                                не получится получить название из адреса
                                (default: 'article').
-            file_extension: расширени итогового файла (default: 'txt').
+            file_extension: расширение итогового файла (default: 'txt').
         """
         self._characters_per_line = character_per_line
         self._paragraphs_indent = paragraphs_indent
